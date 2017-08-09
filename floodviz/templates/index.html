@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+	<title>Flood Viz</title>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 	<link rel="stylesheet" type="text/css"
@@ -10,9 +11,11 @@
 	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/map.css') }}" />
 	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/peakflow.css') }}" />
 	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/hydrograph.css') }}" />
-	<title>Flood Viz</title>
+	<script type="application/ld+json"> {{ linked_data | tojson | safe }} </script>
 
-</head>
+	{% include 'google_analytics.html' %}
+
+	</head>
 
 <body>
 
@@ -33,9 +36,12 @@
 	<div class="main-content container">
 		<div class="col-xs-offset-11">
 			<div class="icon-div">
-				<img src="static/images/facebook.png" class="icon"/>
-				<img src="static/images/twitter.png" class="icon"/>
-				<img src="static/images/github.png" class="icon"/>
+				<img src="static/images/facebook.png" class="icon"
+					 onclick="FV.ga_send_event('Social_Media', 'click_icon', 'facebook');"/>
+				<img src="static/images/twitter.png" class="icon"
+					 onclick="FV.ga_send_event('Social_Media', 'click_icon', 'twitter');"/>
+				<img src="static/images/github.png" class="icon"
+					 onclick="FV.ga_send_event('Social_Media', 'click_icon', 'github');">
 			</div>
 		</div>
 
@@ -43,7 +49,13 @@
 			<div class="col-sm-6">
 				<div id="map"></div>
 				<div id="map_text">
-					<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+					<p>Lorem ipsum dolor
+						<a href="https://i.redd.it/skwjllc1cidz.jpg"
+						   onclick="FV.ga_send_event('Links', 'click_link', this.href);">Link here</a>
+						sitamet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna
+						aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
+						commodo consequat.
+					</p>
 				</div>
 			</div>
 			<div class="col-sm-6 col-centered">
@@ -102,8 +114,8 @@
 	</div>
 
 	<script type="text/javascript">
-		// Global Namespace for project - FV
-		var FV = FV || {};
+
+		// Continue FV namespace definitions
 		FV.config ={
 			debug: {{ config.DEBUG | tojson | safe }}
 		};
@@ -116,6 +128,7 @@
 		FV.peakinfo = {{ peakinfo | tojson | safe }};
 
 		FV.mapinfo = {{ mapinfo | tojson | safe }};
+
 	</script>
 
 	<script type="text/javascript"
@@ -128,6 +141,7 @@
 			src="{{ url_for('static', filename='bower_components/proj4/dist/proj4.js') }}"></script>
 	<script type="text/javascript" src="{{ url_for('static', filename='js/peakflow.js') }}"></script>
 	<script type="text/javascript" src="{{ url_for('static', filename='js/map.js') }}"></script>
+	<script type="text/javascript" src="{{ url_for('static', filename='js/tooltip.js') }}"></script>
 	<script type="text/javascript" src="{{ url_for('static', filename='js/floodviz_onready.js') }}"></script>
 
 </body>

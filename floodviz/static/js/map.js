@@ -14,6 +14,7 @@
 		 *    @prop 'ref_data' v(javascript object) - reference data
 		 *    @prop 'site_data' v(javascript object) - site data
 		 *    @prop 'div_id' v(string) - id for the container for this graph
+		 *    @prop 'disableInteractions' v(boolean) - disables interactions between hydrograph and map
 		 *
 		 * mapmodule is a module for creating maps using d3. Pass it a javascript object
 		 * specifying config options for the map. Call init() to create the map. Linked
@@ -31,6 +32,9 @@
 		FV.mapmodule = function (options) {
 
 			var self = {};
+
+			//governs whether map=hydrograph interactions will be turned on
+			var disableInteractions = options.disableInteractions;
 
 			// Stores SVG coordinates of gages and the size and location of the selection box
 			var state = {};
@@ -53,9 +57,9 @@
 			//Create SVG element
 			var svg = null;
 			// Tooltip
-			var maptip = d3.select('body')
-				.append('div')
-				.attr('id', 'maptip');
+			var maptip = null;
+			// Google Analytics Boolean Trackers
+			var map_moused_over_gage = {};
 
 			/**
 			 * Add circles to the map.
@@ -74,8 +78,11 @@
 					.enter()
 					.append('circle')
 					.attr('r', radius)
-					.attr('transform', function (d) {
-						return 'translate(' + projection(d.geometry.coordinates) + ')';
+					.attr('cx', function (d) {
+						return projection(d.geometry.coordinates)[0]
+					})
+					.attr('cy', function (d) {
+						return projection(d.geometry.coordinates)[1]
 					})
 					.attr('id', function (d) {
 						if (property_for_id && d.properties[property_for_id]) {
@@ -116,15 +123,21 @@
 				if (being_displayed === true) {
 					self.site_remove_accent(sitekey);
 					new_display_ids.splice(new_display_ids.indexOf(sitekey), 1);
-					self.linked_interactions.hover_out(sitekey);
+					if (!disableInteractions) {
+						self.linked_interactions.hover_out(sitekey);
+					}
 				}
 				else {
 					self.site_add_accent(sitekey);
 					new_display_ids.push(sitekey);
+					if (!disableInteractions) {
+						self.linked_interactions.hover_in(sitekey);
+					}
+				}
+				if (!disableInteractions) {
+					self.linked_interactions.click(new_display_ids);
 					self.linked_interactions.hover_in(sitekey);
 				}
-				self.linked_interactions.click(new_display_ids);
-				self.linked_interactions.hover_in(sitekey);
 			};
 
 			/**
@@ -161,6 +174,11 @@
 						width: parseInt(box.attr('width')),
 						height: parseInt(box.attr('height'))
 					};
+
+					for (var i = 0; i < point.length; i++) {
+						point[i] = Math.round(point[i]);
+					}
+
 					var move = {
 						x: point[0] - d.x,
 						y: point[1] - d.y
@@ -229,7 +247,10 @@
 							self.site_add_accent(key);
 						}
 					});
-					self.linked_interactions.click(selected);
+					if (!disableInteractions) {
+						self.linked_interactions.click(selected);
+					}
+					FV.ga_send_event('Map', 'drag_select', selected.join(','));
 				}
 				state.box = {};
 				svg.select('#map-select-box').remove();
@@ -247,7 +268,9 @@
 			 */
 			self.init = function (linked_interactions) {
 
-				self.linked_interactions = linked_interactions;
+				if (!disableInteractions) {
+					self.linked_interactions = linked_interactions;
+				}
 
 				if (svg !== null) {
 					d3.select(options.div_id).select('svg').remove();
@@ -257,21 +280,30 @@
 					.attr("preserveAspectRatio", "xMinYMin meet")
 					.attr("viewBox", "0 0 " + width + " " + height);
 
-				// Define the drag behavior to be used for the selection box
-				var drag = d3.drag()
-					.on('start', function () {
-						var p = d3.mouse(this);
-						select_box_start(p);
-					})
-					.on('drag', function () {
-						var p = d3.mouse(this);
-						select_box_drag(p);
-					})
-					.on('end', function () {
-						select_box_end();
-					});
+				state.edges = {
+					l: 0,
+					r: width,
+					t: 0
+				};
 
-				svg.call(drag);
+
+				// Define the drag behavior to be used for the selection box
+				if (!disableInteractions) {
+					var drag = d3.drag()
+						.on('start', function () {
+							var p = d3.mouse(this);
+							select_box_start(p);
+						})
+						.on('drag', function () {
+							var p = d3.mouse(this);
+							select_box_drag(p);
+						})
+						.on('end', function () {
+							select_box_end();
+						});
+
+					svg.call(drag);
+				}
 
 				// set bounding box to values provided
 				var b = path.bounds(options.bounds);
@@ -300,47 +332,83 @@
 				sites.selectAll('circle')
 					.on('mouseover', function (d) {
 						self.site_tooltip_show(d.properties.name, d.properties.id);
-						self.linked_interactions.hover_in(d.properties.id);
+						if (!disableInteractions) {
+							self.linked_interactions.hover_in(d.properties.id);
+						}
+;						// Only log first hover of gage point per session
+						if (map_moused_over_gage[d.properties.id] === undefined) {
+							FV.ga_send_event('Map', 'hover_gage', d.properties.id);
+							map_moused_over_gage[d.properties.id] = true;
+						}
 					})
 					.on('mouseout', function (d) {
 						self.site_tooltip_remove();
-						self.linked_interactions.hover_out(d.properties.id);
+						if (!disableInteractions) {
+							self.linked_interactions.hover_out(d.properties.id);
+						}
 					})
 					.on('click', function (d) {
-						toggle_hydrograph_display(d.properties.id);
+						if (!disableInteractions) {
+							toggle_hydrograph_display(d.properties.id);
+							FV.ga_send_event('Map', 'gage_click_on', d.properties.id);
+						}
 					})
 					.on('mousedown', function () {
 						d3.event.stopPropagation();
 					});
-
-				sites.selectAll('circle').each(function (d) {
-					if (FV.hydrograph_display_ids.indexOf(d.properties.id) !== -1) {
-						self.site_add_accent(d.properties.id);
-					}
-				});
+				if (!disableInteractions) {
+					sites.selectAll('circle').each(function (d) {
+						if (FV.hydrograph_display_ids.indexOf(d.properties.id) !== -1) {
+							self.site_add_accent(d.properties.id);
+						}
+					});
+				}
 
 				// Debug points
 				if (FV.config.debug) {
 					add_circles(options.bounds, 'debug-point', 3)
 				}
+
+				// Add maptip skeleton
+				maptip = svg.append('g')
+					.attr('class', 'maptip-hide')
+					.attr('id', 'maptip');
+				// I'm abbreviating 'maptip' to 'mt' in these IDs to clarify that they are children of the maptip group
+				maptip.append('rect')
+					.attr('id', 'mt-text-background');
+				maptip.append('polyline')
+					.attr('id', 'mt-arrow');
+				maptip.append('text')
+					.attr('id', 'mt-text');
 			};
 
 			/**
 			 * Shows sitename tooltip on map figure at correct location.
 			 */
 			self.site_tooltip_show = function (sitename, sitekey) {
-				var gage_point_cords = document.getElementById('map' + sitekey).getBoundingClientRect();
-				maptip.transition().duration(500);
-				maptip.style('display', 'inline-block')
-					.style('left', (gage_point_cords.left) + 7 + 'px')
-					.style('top', (gage_point_cords.top - 30) + 'px')
-					.html((sitename));
+
+				const gage = d3.select('#map' + sitekey);
+				const gagelocation = {
+					x: parseFloat(gage.attr('cx')),
+					y: parseFloat(gage.attr('cy'))
+				};
+
+				const tooltip_elements = {
+					group: maptip,
+					text: maptip.select('#mt-text'),
+					backdrop: maptip.select('#mt-text-background'),
+					arrow: maptip.select('#mt-arrow')
+				};
+				const textstring = sitename;
+				const visible_class = 'maptip-show';
+				FV.show_tooltip(tooltip_elements, textstring, state.edges, gagelocation, visible_class);
+
 			};
 			/**
 			 * Removes tooltip style from map site.
 			 */
 			self.site_tooltip_remove = function () {
-				maptip.style('display', 'none');
+				maptip.attr('class', 'maptip-hide');
 			};
 
 			/**

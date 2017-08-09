@@ -54,11 +54,16 @@ MAP_CONFIG = {
     'scale': None,
 }
 
-# Thumbnail Support
-THUMBNAIL = False
+# Google Analytics
+GA_ID = ""
 
 deployed_url_base = os.environ.get('DEPLOYED_BASE_URL')
 if deployed_url_base:
     FREEZER_BASE_URL = deployed_url_base
     print(FREEZER_BASE_URL)
 
+thumbnail = os.environ.get('THUMBNAIL')
+if thumbnail == "true":
+    THUMBNAIL = True
+else:
+    THUMBNAIL = False
